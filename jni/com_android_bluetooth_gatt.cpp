@@ -185,6 +185,7 @@ static jmethodID method_onSyncLost;
 static jmethodID method_onSyncReport;
 static jmethodID method_onSyncStarted;
 static jmethodID method_onSyncTransferedCallback;
+
 /**
  * Static variables
  */

@@ -16,6 +16,8 @@
 
 package com.android.bluetooth.gatt;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.IPeriodicAdvertisingCallback;
 import android.bluetooth.le.PeriodicAdvertisingReport;
 import android.bluetooth.le.ScanRecord;
@@ -26,11 +28,10 @@ import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.bluetooth.btservice.AdapterService;
-import android.bluetooth.BluetoothAdapter;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import android.bluetooth.BluetoothDevice;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -46,9 +47,11 @@ class PeriodicScanManager {
     private final BluetoothAdapter mAdapter;
     Map<IBinder, SyncInfo> mSyncs = new ConcurrentHashMap<>();
     Map<IBinder, SyncTransferInfo> mSyncTransfers = Collections.synchronizedMap(new HashMap<>());
+
     static int sTempRegistrationId = -1;
     private int PA_SOURCE_LOCAL = 1;
     private int PA_SOURCE_REMOTE = 2;
+
     /**
      * Constructor of {@link SyncManager}.
      */
@@ -73,16 +76,7 @@ class PeriodicScanManager {
         sTempRegistrationId = -1;
     }
 
-    class SyncTransferInfo {
-        public String address;
-        public SyncDeathRecipient deathRecipient;
-        public IPeriodicAdvertisingCallback callback;
 
-        SyncTransferInfo(String address, IPeriodicAdvertisingCallback callback) {
-            this.address = address;
-            this.callback = callback;
-        }
-    }
     class SyncInfo {
         /* When id is negative, the registration is ongoing. When the registration finishes, id
          * becomes equal to sync_handle */
@@ -106,6 +100,18 @@ class PeriodicScanManager {
             this.callback = callback;
         }
     }
+
+    class SyncTransferInfo {
+        public String address;
+        public SyncDeathRecipient deathRecipient;
+        public IPeriodicAdvertisingCallback callback;
+
+        SyncTransferInfo(String address, IPeriodicAdvertisingCallback callback) {
+            this.address = address;
+            this.callback = callback;
+        }
+    }
+
     Map.Entry<IBinder, SyncTransferInfo> findSyncTransfer(String address) {
         Map.Entry<IBinder, SyncTransferInfo> entry = null;
         for (Map.Entry<IBinder, SyncTransferInfo> e : mSyncTransfers.entrySet()) {
@@ -116,6 +122,7 @@ class PeriodicScanManager {
         }
         return entry;
     }
+
     IBinder toBinder(IPeriodicAdvertisingCallback e) {
         return ((IInterface) e).asBinder();
     }
@@ -156,6 +163,7 @@ class PeriodicScanManager {
         }
         return entry;
     }
+
     Map<IBinder, SyncInfo> findAllSync(int syncHandle) {
         Map <IBinder, SyncInfo> syncMap = new HashMap<IBinder, SyncInfo>();
         for (Map.Entry<IBinder, SyncInfo> e : mSyncs.entrySet()) {
@@ -166,6 +174,7 @@ class PeriodicScanManager {
         }
         return syncMap;
     }
+
     void onSyncStarted(int regId, int syncHandle, int sid, int addressType, String address, int phy,
             int interval, int status) throws Exception {
         if (DBG) {
@@ -316,6 +325,7 @@ class PeriodicScanManager {
         Log.d(TAG,"calling stopSyncNative: " + syncHandle.intValue());
         if (syncHandle < 0) {
             Log.i(TAG, "cancelSync() - sync not established yet");
+            // Sync will be freed once initiated in onSyncStarted()
             cancelSyncNative(sync.adv_sid, sync.address);
         } else {
             stopSyncNative(syncHandle.intValue());
@@ -342,7 +352,8 @@ class PeriodicScanManager {
             Log.d(TAG,"transferSync: callback not registered");
         }
         //check for duplicate transfers
-        mSyncTransfers.put(entry.getKey(), new SyncTransferInfo(bda.getAddress(), entry.getValue().callback));
+        mSyncTransfers.put(entry.getKey(), new SyncTransferInfo(bda.getAddress(),
+                entry.getValue().callback));
         syncTransferNative(PA_SOURCE_REMOTE, bda.getAddress(), service_data, sync_handle);
     }
 
